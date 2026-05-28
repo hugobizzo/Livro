@@ -1,36 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Livro Magico App
 
-## Getting Started
+App novo e isolado para criar, aprovar, produzir e rastrear livros infantis personalizados.
 
-First, run the development server:
+## Regra de isolamento
+
+Este projeto nao deve compartilhar Supabase, Vercel, banco, storage, variaveis de ambiente ou webhooks com qualquer outro app existente.
+
+Veja `docs/isolamento.md`.
+
+## Stack inicial
+
+- Next.js + TypeScript
+- Tailwind CSS
+- Prototipo local com pedidos salvos no navegador
+- Supabase futuro, em projeto proprio
+- Mercado Pago futuro, via camada de provider
+
+## Rodar localmente
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm.cmd run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abra `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Rotas principais
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `/`: landing page
+- `/login`: entrada visual cliente/admin
+- `/novo-livro`: wizard de briefing
+- `/cliente`: area do cliente
+- `/admin`: painel do dono
+- `/admin/pedidos/LM-000124`: detalhe de pedido
+- `/q/magico-7K4Q2`: pagina publica de QR
 
-## Learn More
+## Proximas fases
 
-To learn more about Next.js, take a look at the following resources:
+1. Fechar UX do cliente e aprovacao de historia.
+2. Criar projeto Vercel proprio.
+3. Criar projeto Supabase proprio.
+4. Conectar autenticacao, banco e storage.
+5. Implementar geracao de historia com o motor de producao.
+6. Implementar Mercado Pago em sandbox.
+7. Gerar PDF de prova e pacote para grafica.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Veja `docs/arquitetura_producao.md`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Scripts
 
-## Deploy on Vercel
+```bash
+npm.cmd run dev
+npm.cmd run build
+npm.cmd run lint
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Observacao
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+O primeiro corte usa dados locais e exemplos para validar fluxo, UI e estrutura operacional antes de conectar banco, pagamento e motor de producao.
