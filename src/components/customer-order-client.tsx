@@ -32,10 +32,29 @@ export function CustomerOrderClient({ orderId }: { orderId: string }) {
   const [note, setNote] = useState("");
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
+    const timer = window.setTimeout(async () => {
       const nextOrder = getPrototypeOrder(orderId) ?? null;
-      setOrder(nextOrder);
-      setDraftStory(nextOrder?.story ?? []);
+      if (nextOrder) {
+        setOrder(nextOrder);
+        setDraftStory(nextOrder.story);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/orders/${orderId}`);
+        if (!response.ok) {
+          setOrder(null);
+          setDraftStory([]);
+          return;
+        }
+
+        const payload = (await response.json()) as { order?: PrototypeOrder | null };
+        setOrder(payload.order ?? null);
+        setDraftStory(payload.order?.story ?? []);
+      } catch {
+        setOrder(null);
+        setDraftStory([]);
+      }
     }, 0);
     return () => window.clearTimeout(timer);
   }, [orderId]);
@@ -66,9 +85,9 @@ export function CustomerOrderClient({ orderId }: { orderId: string }) {
           Voltar
         </Link>
         <section className="mt-6 rounded-3xl border border-[#d9ddd9] bg-white p-8 text-center shadow-sm">
-          <h1 className="text-2xl font-semibold text-[#173331]">Pedido nao encontrado neste navegador</h1>
+          <h1 className="text-2xl font-semibold text-[#173331]">Pedido nao encontrado</h1>
           <p className="mt-2 text-sm text-[#68716e]">
-            Os pedidos deste prototipo ficam salvos apenas no navegador atual.
+            Entre na conta usada na compra ou crie um novo livro para testar o fluxo.
           </p>
           <Link
             href="/novo-livro"

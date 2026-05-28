@@ -21,7 +21,19 @@ export default function AdminPage() {
   const totalGenerationCost = visibleOrders.reduce((sum, order) => sum + order.aiCost, 0);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setLocalOrders(listPrototypeOrders()), 0);
+    const timer = window.setTimeout(async () => {
+      const local = listPrototypeOrders();
+      setLocalOrders(local);
+
+      try {
+        const response = await fetch("/api/orders");
+        if (!response.ok) return;
+        const payload = (await response.json()) as { orders?: PrototypeOrder[] };
+        setLocalOrders(mergeOrders(payload.orders ?? [], local));
+      } catch {
+        setLocalOrders(local);
+      }
+    }, 0);
     return () => window.clearTimeout(timer);
   }, []);
 
@@ -149,6 +161,20 @@ export default function AdminPage() {
       </section>
     </main>
   );
+}
+
+function mergeOrders(onlineOrders: PrototypeOrder[], localOrders: PrototypeOrder[]) {
+  const seen = new Set<string>();
+  const merged: PrototypeOrder[] = [];
+
+  for (const order of [...onlineOrders, ...localOrders]) {
+    const key = `${order.id}:${order.serialCode}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(order);
+  }
+
+  return merged;
 }
 
 function toBookOrder(order: PrototypeOrder): BookOrder {

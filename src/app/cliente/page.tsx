@@ -8,9 +8,30 @@ import { listPrototypeOrders, type PrototypeOrder } from "@/lib/prototype-store"
 
 export default function CustomerPage() {
   const [orders, setOrders] = useState<PrototypeOrder[]>([]);
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setOrders(listPrototypeOrders()), 0);
+    const timer = window.setTimeout(async () => {
+      const localOrders = listPrototypeOrders();
+      setOrders(localOrders);
+
+      try {
+        const response = await fetch("/api/orders");
+        if (response.status === 401) {
+          setNotice("Entre na conta para ver pedidos salvos online.");
+          return;
+        }
+
+        if (!response.ok) return;
+
+        const payload = (await response.json()) as { orders?: PrototypeOrder[] };
+        const onlineOrders = payload.orders ?? [];
+        setOrders(mergeOrders(onlineOrders, localOrders));
+        setNotice(onlineOrders.length ? "Pedidos carregados da conta." : "");
+      } catch {
+        setNotice("");
+      }
+    }, 0);
     return () => window.clearTimeout(timer);
   }, []);
 
@@ -41,6 +62,11 @@ export default function CustomerPage() {
             <ArrowRight className="size-4" aria-hidden="true" />
           </Link>
         </div>
+        {notice && (
+          <div className="mt-5 rounded-2xl border border-[#f1d394] bg-[#fff4dc] p-4 text-sm font-medium text-[#7a5012]">
+            {notice}
+          </div>
+        )}
       </section>
 
       {currentOrder ? (
@@ -99,4 +125,18 @@ export default function CustomerPage() {
       )}
     </main>
   );
+}
+
+function mergeOrders(onlineOrders: PrototypeOrder[], localOrders: PrototypeOrder[]) {
+  const seen = new Set<string>();
+  const merged: PrototypeOrder[] = [];
+
+  for (const order of [...onlineOrders, ...localOrders]) {
+    const key = `${order.id}:${order.serialCode}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(order);
+  }
+
+  return merged;
 }
