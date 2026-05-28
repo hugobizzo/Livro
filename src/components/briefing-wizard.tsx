@@ -98,16 +98,21 @@ export function BriefingWizard() {
   const [briefing, setBriefing] = useState<PrototypeBriefing>(defaultBriefing);
   const [notice, setNotice] = useState("");
   const [isRecording, setIsRecording] = useState(false);
+  const [isPreparingStory, setIsPreparingStory] = useState(false);
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [savedOrderId, setSavedOrderId] = useState("");
+  const [generatedStory, setGeneratedStory] = useState<ReturnType<typeof generateStoryPages> | null>(null);
   const [expandedCharacterId, setExpandedCharacterId] = useState(briefing.characters[0]?.id ?? "");
 
   const progress = useMemo(() => `${Math.round((step / steps.length) * 100)}%`, [step]);
   const storyPreview = useMemo(() => generateStoryPages(briefing), [briefing]);
+  const displayedStory = generatedStory ?? storyPreview;
   const safetyIssues = useMemo(() => findSafetyIssues(briefing), [briefing]);
   const heroName = briefing.childName || briefing.characters[0]?.name || "a crianca";
 
   function updateField<K extends keyof PrototypeBriefing>(field: K, value: PrototypeBriefing[K]) {
     setBriefing((current) => ({ ...current, [field]: value }));
+    setGeneratedStory(null);
   }
 
   function updateChildName(value: string) {
@@ -245,6 +250,37 @@ export function BriefingWizard() {
     setNotice("Rascunho salvo neste navegador.");
   }
 
+  async function prepareStory() {
+    setIsPreparingStory(true);
+    setNotice("");
+
+    try {
+      const response = await fetch("/api/ai/story", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ briefing }),
+      });
+
+      const payload = (await response.json()) as {
+        ok?: boolean;
+        story?: ReturnType<typeof generateStoryPages>;
+        message?: string;
+      };
+
+      if (!response.ok || !payload.story) {
+        setNotice(payload.message || "Nao consegui preparar uma nova versao agora.");
+        return;
+      }
+
+      setGeneratedStory(payload.story);
+      setNotice("Historia preparada. Revise abaixo e ajuste se quiser.");
+    } catch {
+      setNotice("Nao consegui preparar uma nova versao agora. A previa local continua disponivel.");
+    } finally {
+      setIsPreparingStory(false);
+    }
+  }
+
   async function saveOrder() {
     const error = validateCurrentStep();
     if (error) {
@@ -257,9 +293,10 @@ export function BriefingWizard() {
       return;
     }
 
-    const order = createPrototypeOrder(briefing);
+    const order = createPrototypeOrder(briefing, { story: displayedStory });
     savePrototypeOrder(order);
     setSavedOrderId(order.id);
+    setIsCheckingOut(true);
 
     try {
       const response = await fetch("/api/orders", {
@@ -269,14 +306,31 @@ export function BriefingWizard() {
       });
 
       if (response.status === 401) {
-        setNotice("Pedido salvo neste navegador. Entre na conta para salvar online.");
+        setNotice("Pedido salvo neste navegador. Entre na conta para pagar e salvar online.");
       } else if (!response.ok) {
         setNotice("Pedido salvo neste navegador. O salvamento online ainda precisa de ajuste.");
       } else {
-        setNotice("Pedido criado e salvo online. A historia ja esta pronta para aprovacao.");
+        const checkoutResponse = await fetch("/api/payments/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ order }),
+        });
+        const checkout = (await checkoutResponse.json()) as {
+          checkoutUrl?: string;
+          message?: string;
+        };
+
+        if (checkoutResponse.ok && checkout.checkoutUrl) {
+          window.location.href = checkout.checkoutUrl;
+          return;
+        }
+
+        setNotice(checkout.message || "Pedido salvo online. Pagamento real ainda precisa ser configurado.");
       }
     } catch {
       setNotice("Pedido salvo neste navegador. Nao consegui salvar online agora.");
+    } finally {
+      setIsCheckingOut(false);
     }
 
     router.push(`/cliente/pedidos/${order.id}`);
@@ -533,11 +587,20 @@ export function BriefingWizard() {
               <div className="mb-4 flex items-center justify-between gap-3">
                 <h3 className="text-lg font-semibold text-[#173331]">Historia inicial</h3>
                 <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#0f5f63]">
-                  {storyPreview.length} paginas
+                  {displayedStory.length} paginas
                 </span>
               </div>
+              <button
+                type="button"
+                onClick={prepareStory}
+                disabled={isPreparingStory}
+                className="mb-4 inline-flex items-center justify-center gap-2 rounded-2xl border border-[#d9ddd9] bg-white px-4 py-3 text-sm font-semibold text-[#173331] transition hover:bg-[#f0ebe0] disabled:opacity-60"
+              >
+                <Sparkles className="size-4 text-[#c77d35]" aria-hidden="true" />
+                {isPreparingStory ? "Preparando..." : "Preparar versao completa"}
+              </button>
               <div className="grid max-h-[620px] gap-3 overflow-y-auto pr-1 md:grid-cols-2">
-                {storyPreview.map((page) => (
+                {displayedStory.map((page) => (
                   <article key={page.pageNumber} className="rounded-2xl border border-[#e5e3dc] bg-white p-4">
                     <div className="flex items-center justify-between gap-3">
                       <h4 className="font-semibold text-[#173331]">Pagina {page.pageNumber}</h4>
@@ -585,9 +648,10 @@ export function BriefingWizard() {
           <button
             type="button"
             onClick={step === steps.length ? saveOrder : nextStep}
+            disabled={isCheckingOut}
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#173331] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#0f5f63]"
           >
-            {step === steps.length ? "Enviar para aprovacao" : "Continuar"}
+            {step === steps.length ? (isCheckingOut ? "Salvando..." : "Enviar para pagamento") : "Continuar"}
             <ArrowRight className="size-4" aria-hidden="true" />
           </button>
         </div>

@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { BookOpen, LockKeyhole, QrCode } from "lucide-react";
-import { getOrderByPublicCode } from "@/lib/mock-data";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export default async function PublicQrPage({
   params,
@@ -9,11 +8,7 @@ export default async function PublicQrPage({
   params: Promise<{ code: string }>;
 }) {
   const { code } = await params;
-  const order = getOrderByPublicCode(code);
-
-  if (!order) {
-    notFound();
-  }
+  const order = await findPublicOrder(code);
 
   return (
     <main className="mx-auto grid min-h-[calc(100vh-76px)] max-w-6xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[1fr_380px] lg:px-8">
@@ -48,8 +43,12 @@ export default async function PublicQrPage({
         <div className="mx-auto flex size-28 items-center justify-center rounded-3xl bg-[#e8f2f4] text-[#0f5f63]">
           <QrCode className="size-14" aria-hidden="true" />
         </div>
-        <h2 className="mt-6 text-xl font-semibold text-[#173331]">{order.serialCode}</h2>
-        <p className="mt-2 text-sm text-[#68716e]">Codigo publico: {order.publicCode}</p>
+        <h2 className="mt-6 text-xl font-semibold text-[#173331]">
+          {order?.serial_code ?? "Codigo recebido"}
+        </h2>
+        <p className="mt-2 text-sm text-[#68716e]">
+          Codigo publico: {order?.public_code ?? code}
+        </p>
         <div className="mt-6 rounded-2xl bg-[#fbf8f1] p-4">
           <BookOpen className="mx-auto size-5 text-[#c77d35]" aria-hidden="true" />
           <p className="mt-3 text-sm text-[#59635f]">
@@ -59,4 +58,19 @@ export default async function PublicQrPage({
       </aside>
     </main>
   );
+}
+
+async function findPublicOrder(code: string) {
+  try {
+    const supabase = createAdminClient();
+    const { data } = await supabase
+      .from("orders")
+      .select("serial_code, public_code")
+      .eq("public_code", code)
+      .maybeSingle();
+
+    return data;
+  } catch {
+    return null;
+  }
 }

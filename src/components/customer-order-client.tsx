@@ -29,6 +29,8 @@ export function CustomerOrderClient({ orderId }: { orderId: string }) {
   const [storyEditing, setStoryEditing] = useState(false);
   const [revisionOpen, setRevisionOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
+  const [actionNotice, setActionNotice] = useState("");
+  const [isPaying, setIsPaying] = useState(false);
   const [note, setNote] = useState("");
 
   useEffect(() => {
@@ -63,6 +65,49 @@ export function CustomerOrderClient({ orderId }: { orderId: string }) {
     updatePrototypeOrder(nextOrder);
     setOrder(nextOrder);
     setDraftStory(nextOrder.story);
+    void syncOnline(nextOrder);
+  }
+
+  async function syncOnline(nextOrder: PrototypeOrder) {
+    try {
+      const response = await fetch(`/api/orders/${nextOrder.serialCode || nextOrder.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(nextOrder),
+      });
+
+      if (!response.ok && response.status !== 404 && response.status !== 401) {
+        setActionNotice("Alteracao salva neste navegador; sincronizacao online precisa de revisao.");
+      }
+    } catch {
+      setActionNotice("Alteracao salva neste navegador; sincronizacao online indisponivel agora.");
+    }
+  }
+
+  async function startPayment() {
+    if (!order) return;
+    setIsPaying(true);
+    setActionNotice("");
+
+    try {
+      const response = await fetch("/api/payments/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order }),
+      });
+      const payload = (await response.json()) as { checkoutUrl?: string; message?: string };
+
+      if (response.ok && payload.checkoutUrl) {
+        window.location.href = payload.checkoutUrl;
+        return;
+      }
+
+      setActionNotice(payload.message || "Pagamento ainda nao configurado para este pedido.");
+    } catch {
+      setActionNotice("Nao consegui iniciar o pagamento agora.");
+    } finally {
+      setIsPaying(false);
+    }
   }
 
   function updateDraftPage(pageNumber: number, patch: Partial<PrototypeStoryPage>) {
@@ -171,6 +216,15 @@ export function CustomerOrderClient({ orderId }: { orderId: string }) {
           </div>
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+            {order.financialStatus === "awaiting_payment" && (
+              <button
+                onClick={startPayment}
+                disabled={isPaying}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#c77d35] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#a96525] disabled:opacity-60"
+              >
+                {isPaying ? "Abrindo pagamento..." : "Pagar pedido"}
+              </button>
+            )}
             <button
               onClick={() => persist(approveStory(order))}
               className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#173331] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#0f5f63]"
@@ -200,6 +254,12 @@ export function CustomerOrderClient({ orderId }: { orderId: string }) {
               Falar com suporte
             </button>
           </div>
+
+          {actionNotice && (
+            <div className="mt-5 rounded-2xl border border-[#f1d394] bg-[#fff4dc] p-4 text-sm font-medium text-[#7a5012]">
+              {actionNotice}
+            </div>
+          )}
 
           {(revisionOpen || supportOpen) && (
             <div className="mt-5 rounded-2xl border border-[#d9ddd9] bg-[#fbf8f1] p-4">

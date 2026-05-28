@@ -1,6 +1,7 @@
 "use client";
 
 import type { ApprovalItem, FinancialStatus, OrderStage, TimelineItem } from "./types";
+import { estimateGenerationCostBrl } from "./costing";
 
 const ORDERS_KEY = "livro-magico:orders:v1";
 
@@ -75,6 +76,7 @@ export type PrototypeOrder = {
 
 type CreateOrderOptions = {
   draft?: boolean;
+  story?: PrototypeStoryPage[];
 };
 
 export function emptyCharacter(role = "Protagonista", name = ""): PrototypeCharacter {
@@ -145,9 +147,10 @@ export function createPrototypeOrder(
   const year = now.getFullYear();
   const title = clean(briefing.title) || suggestedTitle(briefing);
   const childName = clean(briefing.childName) || firstCharacterName(briefing) || "Crianca";
-  const financialStatus: FinancialStatus = options.draft ? "draft" : "paid";
+  const financialStatus: FinancialStatus = options.draft ? "draft" : "awaiting_payment";
   const stage: OrderStage = options.draft ? "briefing" : "story_approval";
-  const story = generateStoryPages({ ...briefing, title, childName });
+  const story = options.story ?? generateStoryPages({ ...briefing, title, childName });
+  const generationCost = estimateGenerationCostBrl(briefing.pages);
 
   return {
     id: `LM-${suffix}`,
@@ -160,15 +163,15 @@ export function createPrototypeOrder(
     format: briefing.format,
     pages: briefing.pages,
     price: 200,
-    generationCost: 0,
+    generationCost,
     printCost: 70,
     freightCost: 25,
-    margin: 105,
+    margin: 200 - generationCost - 70 - 25,
     financialStatus,
     stage,
     statusLabel: options.draft
       ? "Rascunho salvo; briefing ainda pode ser ajustado"
-      : "Pagamento registrado; historia aguardando aprovacao",
+      : "Pedido criado; pagamento aguardando confirmacao",
     dueDate: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString("pt-BR"),
     createdAt: now.toLocaleDateString("pt-BR"),
     briefing: {

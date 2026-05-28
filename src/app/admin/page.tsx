@@ -7,7 +7,7 @@ import { MetricCard } from "@/components/metric-card";
 import { OrderTable } from "@/components/order-table";
 import { StatusPill } from "@/components/status-pill";
 import { money } from "@/lib/format";
-import { orders, ownerMetrics, printers, qualitySignals } from "@/lib/mock-data";
+import { orders, printers, qualitySignals } from "@/lib/mock-data";
 import { listPrototypeOrders, type PrototypeOrder } from "@/lib/prototype-store";
 import type { BookOrder } from "@/lib/types";
 
@@ -19,6 +19,35 @@ export default function AdminPage() {
   );
   const totalMargin = visibleOrders.reduce((sum, order) => sum + order.margin, 0);
   const totalGenerationCost = visibleOrders.reduce((sum, order) => sum + order.aiCost, 0);
+  const paidOrders = visibleOrders.filter((order) => order.financialStatus === "paid");
+  const totalRevenue = paidOrders.reduce((sum, order) => sum + order.price, 0);
+  const averageGenerationCost = visibleOrders.length ? totalGenerationCost / visibleOrders.length : 0;
+  const metrics = [
+    {
+      label: "Pedidos pagos",
+      value: String(paidOrders.length),
+      detail: `${visibleOrders.length} pedidos totais acompanhados`,
+      trend: "Atualizado pelo painel",
+    },
+    {
+      label: "Receita recebida",
+      value: money(totalRevenue),
+      detail: "Considera pedidos com pagamento confirmado",
+      trend: "MVP",
+    },
+    {
+      label: "Margem estimada",
+      value: money(totalMargin),
+      detail: "Preco - geracao - grafica - frete",
+      trend: visibleOrders.length ? `${money(totalMargin / visibleOrders.length)} por pedido` : "Sem pedidos",
+    },
+    {
+      label: "Custo geracao",
+      value: money(totalGenerationCost),
+      detail: `Media ${money(averageGenerationCost)} por pedido`,
+      trend: "Monitorar",
+    },
+  ];
 
   useEffect(() => {
     const timer = window.setTimeout(async () => {
@@ -60,7 +89,7 @@ export default function AdminPage() {
       </section>
 
       <section className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {ownerMetrics.map((metric) => (
+        {metrics.map((metric) => (
           <MetricCard key={metric.label} metric={metric} />
         ))}
       </section>

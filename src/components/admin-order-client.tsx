@@ -16,7 +16,22 @@ export function AdminOrderClient({ orderId }: { orderId: string }) {
   const [localOrder, setLocalOrder] = useState<PrototypeOrder | null>(null);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setLocalOrder(getPrototypeOrder(orderId) ?? null), 0);
+    const timer = window.setTimeout(async () => {
+      const nextOrder = getPrototypeOrder(orderId) ?? null;
+      if (nextOrder) {
+        setLocalOrder(nextOrder);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/orders/${orderId}`);
+        if (!response.ok) return;
+        const payload = (await response.json()) as { order?: PrototypeOrder | null };
+        setLocalOrder(payload.order ?? null);
+      } catch {
+        setLocalOrder(null);
+      }
+    }, 0);
     return () => window.clearTimeout(timer);
   }, [orderId]);
 
@@ -45,6 +60,7 @@ export function AdminOrderClient({ orderId }: { orderId: string }) {
 
 function AdminOrderDetail({ order }: { order: AdminVisibleOrder }) {
   const generationCost = "generationCost" in order ? order.generationCost : order.aiCost;
+  const [operationalNotice, setOperationalNotice] = useState("");
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
@@ -116,11 +132,27 @@ function AdminOrderDetail({ order }: { order: AdminVisibleOrder }) {
           <div className="rounded-3xl border border-[#d9ddd9] bg-white p-6 shadow-sm">
             <h2 className="text-xl font-semibold text-[#173331]">Acoes operacionais</h2>
             <div className="mt-5 space-y-3">
-              <button className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#173331] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#0f5f63]">
+              <button
+                type="button"
+                onClick={() =>
+                  setOperationalNotice(
+                    "Pacote de impressao ainda nao esta automatizado. Proximo passo: gerar PDF fechado, QR e ZIP da grafica."
+                  )
+                }
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#173331] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#0f5f63]"
+              >
                 <Download className="size-4" aria-hidden="true" />
                 Gerar pacote ZIP
               </button>
-              <button className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[#d9ddd9] px-4 py-3 text-sm font-semibold text-[#173331] transition hover:bg-[#fbf8f1]">
+              <button
+                type="button"
+                onClick={() =>
+                  setOperationalNotice(
+                    "Envio para grafica depende do cadastro da grafica parceira e do e-mail/API de recebimento."
+                  )
+                }
+                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-[#d9ddd9] px-4 py-3 text-sm font-semibold text-[#173331] transition hover:bg-[#fbf8f1]"
+              >
                 <Mail className="size-4" aria-hidden="true" />
                 Enviar para grafica
               </button>
@@ -132,6 +164,11 @@ function AdminOrderDetail({ order }: { order: AdminVisibleOrder }) {
                 Abrir QR publico
               </Link>
             </div>
+            {operationalNotice && (
+              <div className="mt-4 rounded-2xl border border-[#f1d394] bg-[#fff4dc] p-4 text-sm font-medium text-[#7a5012]">
+                {operationalNotice}
+              </div>
+            )}
           </div>
 
           <div className="rounded-3xl border border-[#efb7ad] bg-[#fde7e3] p-6 text-[#9a3f2f]">
