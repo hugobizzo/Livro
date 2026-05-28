@@ -245,7 +245,7 @@ export function BriefingWizard() {
     setNotice("Rascunho salvo neste navegador.");
   }
 
-  function saveOrder() {
+  async function saveOrder() {
     const error = validateCurrentStep();
     if (error) {
       setNotice(error);
@@ -260,7 +260,25 @@ export function BriefingWizard() {
     const order = createPrototypeOrder(briefing);
     savePrototypeOrder(order);
     setSavedOrderId(order.id);
-    setNotice("Pedido criado. A historia ja esta pronta para aprovacao.");
+
+    try {
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(order),
+      });
+
+      if (response.status === 401) {
+        setNotice("Pedido salvo neste navegador. Entre na conta para salvar online.");
+      } else if (!response.ok) {
+        setNotice("Pedido salvo neste navegador. O salvamento online ainda precisa de ajuste.");
+      } else {
+        setNotice("Pedido criado e salvo online. A historia ja esta pronta para aprovacao.");
+      }
+    } catch {
+      setNotice("Pedido salvo neste navegador. Nao consegui salvar online agora.");
+    }
+
     router.push(`/cliente/pedidos/${order.id}`);
   }
 
