@@ -168,7 +168,7 @@ function mergeOrders(onlineOrders: PrototypeOrder[], localOrders: PrototypeOrder
   const merged: PrototypeOrder[] = [];
 
   for (const order of [...onlineOrders, ...localOrders]) {
-    const key = `${order.id}:${order.serialCode}`;
+    const key = order.serialCode || order.publicCode || order.id;
     if (seen.has(key)) continue;
     seen.add(key);
     merged.push(order);
